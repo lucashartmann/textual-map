@@ -1,1 +1,3 @@
-# textual-map
+### textual-map
+
+![Visual do Widget](/Example.png)

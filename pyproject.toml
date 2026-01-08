@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "textual-map"
+version = "0.1.0"
+description = "Interactive OpenStreetMap widget for Textual with SIXEL rendering"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Lucas", email = "dudu.a111@hotmail.com" }
+]
+
+dependencies = [
+    "linkify-it-py",
+    "markdown-it-py",
+    "mdit-py-plugins",
+    "mdurl",
+    "pillow",
+    "platformdirs",
+    "Pygments",
+    "rich",
+    "textual",
+    "textual-image",
+    "typing_extensions",
+    "uc-micro-py",
+]
+
+keywords = ["textual", "tui", "map", "openstreetmap", "sixel"]
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/lucashartmann/textual-map"
+Repository = "https://github.com/lucashartmann/textual-map"
+Issues = "https://github.com/lucashartmann/textual-map/issues"
+
+[tool.setuptools]
+packages = ["textual_map"]

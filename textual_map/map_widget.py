@@ -7,8 +7,8 @@ from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
 from textual.app import ComposeResult
-from geocode import geocode
-from tile_loader import get_tiles_for_region
+from .geocode import geocode
+from .tile_loader import get_tiles_for_region
 from textual.events import Key
 from textual import on
 from textual_image.widget import SixelImage
@@ -68,6 +68,14 @@ class MapWidget(Widget):
         sixel.styles.width = "100%"
         sixel.styles.height = "100%"
         yield sixel
+        
+    def _pan_by_keys(self, dx: float, dy: float) -> None:
+        sens = self._pan_sensitivity()
+        self._offset_x += dx * sens * 40
+        self._offset_y += dy * sens * 40
+        self._dirty = True
+        self.refresh()
+
 
     def _pan_sensitivity(self):
         if not hasattr(self, "_pan_cache"):
@@ -194,13 +202,13 @@ class MapWidget(Widget):
         step = self._keyboard_pan_step()
 
         if event.key == "left":
-            self._offset_x -= step
+            self._pan_by_keys(-1, 0)
         elif event.key == "right":
-            self._offset_x += step
+            self._pan_by_keys(+1, 0)
         elif event.key == "up":
-            self._offset_y += step
+            self._pan_by_keys(0, +1)
         elif event.key == "down":
-            self._offset_y -= step
+            self._pan_by_keys(0, -1)
         elif event.key == "enter" and self.marker:
             lat, lon = self.marker
             self._center_on(lat, lon)
