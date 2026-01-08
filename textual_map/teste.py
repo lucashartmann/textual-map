@@ -1,0 +1,3 @@
+from map_widget import MapWidget
+
+MapWidget()
