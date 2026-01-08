@@ -10,3 +10,4 @@ textual==7.0.1
 textual-image==0.8.5
 typing_extensions==4.15.0
 uc-micro-py==1.0.3
+geopy

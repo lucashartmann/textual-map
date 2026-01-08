@@ -6,8 +6,7 @@ from rich.console import RenderableType
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
-from textual.app import ComposeResult
-from .geocode import geocode
+from geopy.geocoders import Nominatim
 from .tile_loader import get_tiles_for_region
 from textual.events import Key
 from textual import on
@@ -16,15 +15,13 @@ from PIL import ImageDraw, ImageFont
 from functools import lru_cache
 from textual.binding import Binding
 
-
 @lru_cache(maxsize=256)
 def get_tiles_cached(lat, lon, zoom, w, h):
     return get_tiles_for_region(lat, lon, zoom, w, h)
 
-
 class MapWidget(Widget):
 
-    zoom = reactive(4)
+    zoom = reactive(10)
     marker = reactive(None)  # type: Optional[Tuple[float, float]]
     last_render_info = reactive("")
 
@@ -53,14 +50,21 @@ class MapWidget(Widget):
         self._last_sent_image = None
         self._ppd_cache = {}
         self._pending_refresh = False
+        self.geolocator = Nominatim(user_agent="my_app")
+        if address:
+            self.location = self.geolocator.geocode(address)
+            self.lat = self.location.latitude
+            self.lon = self.location.longitude
+            self._center_lat = self.lat
+            self._center_lon = self.lon
+            self.marker = (self.lat, self.lon)
 
-    def on_mount(self) -> None:
-        """Handle widget mount - set initial address if provided."""
+
+    async def on_mount(self):
         if self._initial_address:
-            self.set_address(self._initial_address)
+            await self.set_address(self._initial_address)
 
-    def compose(self) -> ComposeResult:
-        """Compose child widgets."""
+    def compose(self):
         # Mount SIXEL widget - it will be updated when image changes
         # Create a SixelImage that fills the available space
         sixel = SixelImage()
@@ -69,7 +73,7 @@ class MapWidget(Widget):
         sixel.styles.height = "100%"
         yield sixel
         
-    def _pan_by_keys(self, dx: float, dy: float) -> None:
+    def _pan_by_keys(self, dx: float, dy: float):
         sens = self._pan_sensitivity()
         self._offset_x += dx * sens * 40
         self._offset_y += dy * sens * 40
@@ -100,20 +104,22 @@ class MapWidget(Widget):
         self.refresh()
 
     async def set_address(self, address: str) -> None:
-        lat, lon = await asyncio.to_thread(geocode, address)
-        self.marker = (lat, lon)
-        self._center_on(lat, lon)
+        self.location = self.geolocator.geocode(address)
+        self.lat = self.location.latitude
+        self.lon = self.location.longitude
+        self.marker = (self.lat, self.lon)
+        self._center_on(self.lat, self.lon)
         self._dirty = True
 
     # Coordinate transforms
     def _center_on(self, lat: float, lon: float) -> None:
-        self._offset_x = -lon
-        self._offset_y = -lat
+        self._center_lat = lat
+        self._center_lon = lon
         self._dirty = True
 
     # Event handlers for mouse interactivity
 
-    async def on_mouse_down(self, event: events.MouseDown) -> None:
+    async def on_mouse_down(self, event: events.MouseDown):
         # Start drag only on left-click so buttons and other clicks still work
         btn = getattr(event, "button", None)
         is_left = False
@@ -136,7 +142,7 @@ class MapWidget(Widget):
         # Note: We don't need to explicitly capture mouse - Textual will send
         # mouse events to this widget when dragging
 
-    async def on_mouse_up(self, event: events.MouseUp) -> None:
+    async def on_mouse_up(self, event: events.MouseUp):
         # Only stop drag on left button release
         btn = getattr(event, "button", None)
         is_left = False
@@ -173,12 +179,76 @@ class MapWidget(Widget):
             self._last_mouse = (cur_x, cur_y)
             self._dirty = True
             await self._schedule_refresh()
+            
+    # Todo: Fix
+    async def on_click(self, event: events.Click) -> None:        
+        if event.chain > 1:
+            click_x, click_y = event.x, event.y
 
-    def _set_zoom(self, value: int):
-        new = max(0, min(18, value))
-        if new != self.zoom:
-            self.zoom = new
+            # converte click_x, click_y para coordenadas geográficas (lat, lon)
+            # Considerando o centro do mapa e o zoom atual
+            w = max(10, self.size.width or 80)
+            h = max(4, self.size.height or 20)
+
+            px_w = int(w * 7.5)
+            px_h = int(h * 16)
+
+            if self.marker:
+                center_lat = self.marker[0] + self._offset_y
+                center_lon = self.marker[1] + self._offset_x
+            else:
+                center_lat = self._offset_y
+                center_lon = self._offset_x
+
+            # pixels per degree no zoom atual
+            degrees_per_tile = 360.0 / (2 ** self.zoom)
+            pixels_per_degree = 256 / degrees_per_tile
+
+            # calcula deslocamento do clique em pixels a partir do centro da tela
+            dx = click_x * 7.5 - px_w / 2
+            dy = click_y * 16 - px_h / 2
+
+            # converte para graus (note que dy é invertido no eixo y)
+            new_lon = center_lon + dx / pixels_per_degree
+            new_lat = center_lat - dy / pixels_per_degree
+
+            # atualiza marcador e centraliza no ponto clicado
+            self.marker = (new_lat, new_lon)
             self._dirty = True
+
+    # Todo: Fix
+    def _set_zoom(self, value: int):
+        new_zoom = max(0, min(18, value))
+        if new_zoom == self.zoom:
+            return
+
+        # Se tiver marcador definido
+        if self.marker:
+            # Coordenadas do marcador (lat, lon)
+            mlat, mlon = self.marker
+
+            # Calcula a posição do marcador no sistema antigo
+            old_zoom = self.zoom
+            old_ppd = 256 / (360.0 / (2 ** old_zoom))  # pixels per degree
+            center_lat = self._offset_y
+            center_lon = self._offset_x
+            old_dx = (mlon - center_lon) * old_ppd
+            old_dy = -(mlat - center_lat) * old_ppd
+
+            # Atualiza o zoom
+            self.zoom = new_zoom
+
+            # Recalcula pixels per degree para novo zoom
+            new_ppd = 256 / (360.0 / (2 ** new_zoom))
+
+            # Ajusta offset para manter marcador fixo na tela
+            self._offset_x = mlon - (old_dx * new_ppd / old_ppd) / new_ppd
+            self._offset_y = mlat + (old_dy * new_ppd / old_ppd) / new_ppd
+        else:
+            self.zoom = new_zoom
+
+        self._dirty = True
+
 
     async def on_mouse_scroll(self, event: events.MouseScroll) -> None:
         event.stop()
@@ -242,11 +312,11 @@ class MapWidget(Widget):
         px_h = int(h * 16)
 
         if self.marker:
-            center_lat = self.marker[0] + self._offset_y
-            center_lon = self.marker[1] + self._offset_x
+            center_lat = getattr(self, "_center_lat", 0)
+            center_lon = getattr(self, "_center_lon", 0)
         else:
-            center_lat = self._offset_y
-            center_lon = self._offset_x
+            center_lat += self._offset_y
+            center_lon += self._offset_x
         # Get real map tiles from OpenStreetMap
         img, _, _ = get_tiles_cached(
             center_lat,

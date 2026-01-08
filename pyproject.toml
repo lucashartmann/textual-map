@@ -26,6 +26,7 @@ dependencies = [
     "textual-image",
     "typing_extensions",
     "uc-micro-py",
+    "geopy"
 ]
 
 keywords = ["textual", "tui", "map", "openstreetmap", "sixel"]
