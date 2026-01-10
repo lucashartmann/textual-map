@@ -2,6 +2,7 @@
 
 ![Visual do Widget](/Example.png)
 ![Visual do Widget](/Example2.png)
+![Visual do Widget](/Example3.png)
 
 ## Usage
 
