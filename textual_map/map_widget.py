@@ -125,9 +125,14 @@ class MapWidget(Widget):
             self.location = self.geolocator.geocode(address)
             self.lat = self.location.latitude
             self.lon = self.location.longitude
-            self._center_lat = self.lat
-            self._center_lon = self.lon
-            self.marker = (self.lat, self.lon)
+        else:
+            self.location = None
+            self.lat = 0.0
+            self.lon = 0.0
+
+        self._center_lat = self.lat
+        self._center_lon = self.lon
+        self.marker = (self.lat, self.lon)
 
     def set_tipo(self, tipo):
         '''
