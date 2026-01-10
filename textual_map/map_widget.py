@@ -11,17 +11,42 @@ from .tile_loader import get_tiles_for_region
 from textual.events import Key
 from textual import on
 from textual_image.widget import SixelImage
+from textual_image.widget import TGPImage
+from textual_image.widget import Image
+from textual_image.widget import HalfcellImage
+from textual_image.widget import UnicodeImage
+from textual_image.widget import AutoImage
 from PIL import ImageDraw, ImageFont
 from functools import lru_cache
 from textual.binding import Binding
+from enum import Enum
 
 @lru_cache(maxsize=256)
 def get_tiles_cached(lat, lon, zoom, w, h):
     return get_tiles_for_region(lat, lon, zoom, w, h)
 
-class MapWidget(Widget):
+class Tipo(Enum):
+    HALFCELL = HalfcellImage(classes="imagem")
+    SIXEL = SixelImage(classes="imagem")
+    AUTO = Image(classes="imagem")
+    UNICODE = UnicodeImage(classes="imagem")
+    TGP = TGPImage(classes="imagem")
+    
 
-    zoom = reactive(10)
+class MapWidget(Widget):
+    
+    DEFAULT_CSS = """
+        .imagem {
+            width: 100%;
+            height: 100%;
+        }
+        MapWidget {
+            height: 20; 
+            width: 50;
+            margin: 0;
+        }
+    """
+    
     marker = reactive(None)  # type: Optional[Tuple[float, float]]
     last_render_info = reactive("")
 
@@ -34,8 +59,10 @@ class MapWidget(Widget):
         Binding("x", "d", "zoom-"),
         Binding("z", "w", "zoom+"),
     }
-
-    def __init__(self, *, address: str | None = None, name: str | None = None):
+    
+    zoom = reactive(10)
+    
+    def __init__(self, *, address: str | None = None, name: str | None = None, zoom=10, tipo=Tipo.AUTO):
         super().__init__(name=name)
         self._offset_x = 0.0
         self._offset_y = 0.0
@@ -51,6 +78,8 @@ class MapWidget(Widget):
         self._ppd_cache = {}
         self._pending_refresh = False
         self.geolocator = Nominatim(user_agent="my_app")
+        self.tipo = tipo
+        self.zoom = zoom
         if address:
             self.location = self.geolocator.geocode(address)
             self.lat = self.location.latitude
@@ -58,20 +87,31 @@ class MapWidget(Widget):
             self._center_lat = self.lat
             self._center_lon = self.lon
             self.marker = (self.lat, self.lon)
+            
+    def set_tipo(self, tipo):
+        '''
+        Tipo de Imagem 
+                
+        Tipo.HALFCELL 
+        Tipo.SIXEL 
+        Tipo.AUTO 
+        Tipo.UNICODE 
+        Tipo.TGP 
+        '''
+        self.tipo = tipo
+        self.refresh()
 
-
+    def set_zoom(self, zoom):
+        self.zoom = zoom
+        self.refresh()
+        
     async def on_mount(self):
         if self._initial_address:
             await self.set_address(self._initial_address)
 
     def compose(self):
-        # Mount SIXEL widget - it will be updated when image changes
-        # Create a SixelImage that fills the available space
-        sixel = SixelImage()
-        # Set the widget to expand and fill available space
-        sixel.styles.width = "100%"
-        sixel.styles.height = "100%"
-        yield sixel
+        imagem = self.tipo.value
+        yield imagem
         
     def _pan_by_keys(self, dx: float, dy: float):
         sens = self._pan_sensitivity()

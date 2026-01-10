@@ -5,12 +5,6 @@ import sys
 
 
 class MapDemoApp(App):
-    CSS = """
-    MapWidget {
-        height: 20;
-    }
-    """
-
     def __init__(self, address: str | None = None, **kwargs):
         super().__init__(**kwargs)
         self.address = address

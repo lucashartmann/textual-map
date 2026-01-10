@@ -9,19 +9,13 @@
 ```python
 from textual.app import App
 from textual_map import MapWidget
+from textual_map.map_widget import Tipo
 
 class TesteMapa(App):
 
-    CSS = """
-    MapWidget { 
-        height: 37; 
-        width: 100%;
-        margin: 4;
-    }
-    """
-
     def compose(self):
         yield MapWidget(address="Praça da Sé, São Paulo SP")
+        # yield MapWidget(address="Praça da Sé, São Paulo SP", zoom=2, tipo=Tipo.HALFCELL)
 
 
 if __name__ == "__main__":
