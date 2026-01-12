@@ -25,11 +25,11 @@ def get_tiles_cached(lat, lon, zoom, w, h):
 
 
 class Tipo(Enum):
-    HALFCELL = HalfcellImage(classes="imagem")
-    SIXEL = SixelImage(classes="imagem")
-    AUTO = Image(classes="imagem")
-    UNICODE = UnicodeImage(classes="imagem")
-    TGP = TGPImage(classes="imagem")
+    HALFCELL = HalfcellImage
+    SIXEL = SixelImage
+    AUTO = Image
+    UNICODE = UnicodeImage
+    TGP = TGPImage
 
 
 class MapWidget(Widget):
@@ -64,14 +64,14 @@ class MapWidget(Widget):
         Binding("x", "zoom_out", "zoom-"),
         Binding("z", "zoom_in", "zoom+"),
     ]
-    
+
     async def agendar_refresh(self):
         self._dirty = True
         self.agendar_refresh()
 
     def action_go_left(self):
         self._pan_by_keys(-1, 0)
-        
+
     def action_go_right(self):
         self._pan_by_keys(+1, 0)
         self._dirty = True
@@ -103,7 +103,7 @@ class MapWidget(Widget):
             self._center_on(lat, lon)
             self.agendar_refresh()
 
-    def __init__(self, *, address: str | None = None, name: str | None = None, zoom=10, tipo=Tipo.AUTO):
+    def __init__(self, *, address: str | None = None, name: str | None = None, zoom=5, tipo=Tipo.AUTO):
         super().__init__(name=name)
         self._offset_x = 0.0
         self._offset_y = 0.0
@@ -127,8 +127,8 @@ class MapWidget(Widget):
             self.lon = self.location.longitude
         else:
             self.location = None
-            self.lat = 0.0
-            self.lon = 0.0
+            self.lat = 31.95
+            self.lon = 10.0
 
         self._center_lat = self.lat
         self._center_lon = self.lon
@@ -156,7 +156,7 @@ class MapWidget(Widget):
             await self.set_address(self._initial_address)
 
     def compose(self):
-        imagem = self.tipo.value
+        imagem = self.tipo.value(classes="imagem")
         yield imagem
 
     def _pan_by_keys(self, dx: int, dy: int):
@@ -231,7 +231,6 @@ class MapWidget(Widget):
             self._last_mouse = (sx, sy)
 
     async def on_mouse_up(self, event: events.MouseUp):
-        # Only stop drag on left button release
         btn = getattr(event, "button", None)
         is_left = False
         try:
